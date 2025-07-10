@@ -1,0 +1,9 @@
+.venv
+trading_bot/trade_bot.db
+.env
+*.db
+__pycache__*
+
+logs/*
+test*
+*.yaml
