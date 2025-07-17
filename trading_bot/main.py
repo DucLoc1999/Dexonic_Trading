@@ -124,21 +124,25 @@ class MyStrategy(Strategy):
         print(f'Running strategy: {self.__class__.__name__} with pair: {pair} and budget: {budget} and data: {data.shape[0]} rows')
         
         # get bot info
-        print(data.tail(5))
         rsi = data['rsi14'].values
         print(f'RSI values: {rsi[-5:]}')
         
         amount=budget
         price = float(data['close'].iloc[-1])
         qty = amount  # calculate qty based on last close price
+        # if getattr(self, 'flag', None) is None:
+        #     self.flag = 'buy' 
+        # self.flag == 'buy': #
         if (rsi[-1] < 25):
             print(f"Buy signal for {pair} at price {price}, qty {qty}")
-            bot.buy(pair=pair, price=price, qty=qty, estimated_amount=amount)
+            bot.buy(pair=pair, price=price, qty=qty, estimated_amount=amount, )
             self.flag = 'sell'  # switch flag to sell after buy signal
         # close trades on sell signal
+        # self.flag == 'sell': # 
         elif (rsi[-1] > 70):
             print(f"Sell signal for {pair} at price {price}, qty {qty}")
             bot.sell(pair=pair, price=price)
+            # self.flag = 'buy'  # switch flag to buy after sell signal
         else:
             print("No signal")
         return None
@@ -156,7 +160,8 @@ def bot_run(bot: TradingBot):
         i += 1
         time.sleep(5)
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print('Time', now, " - process trades: ",bot.checking_orders(), "open trades: ", bot.open_trades, "history trades: ", bot.history_trades)
+    print('Time', now, " - process trades: ",bot.checking_orders(), "open trades: ", bot.open_trades)
+    print("============================================")
 
 # todo: on working version try in testnet mode
 if __name__ == '__main__':
@@ -202,7 +207,7 @@ if __name__ == '__main__':
         tokens=trade_tokens,
         currency='USDT',
         call_budget=0.1,
-        invest_amount=7,
+        invest_amount=5,
         balance=None,
         broker=broker,
         category='spot',
@@ -218,7 +223,7 @@ if __name__ == '__main__':
     try:
         # Run at 5 minute 
         # for minute in range(0, 60, 5):
-        scheduler.add_job(
+        1188(
             bot_run,
             trigger='cron',
             minute='0-55/5',

@@ -9,6 +9,7 @@ from db.models.trade import Trade as TradeModel
 import ulid
 
 import warnings
+# from notice_bot.discord_bot import trade_announce
 warnings.filterwarnings('ignore')
 
 class OrderPlan():
@@ -146,12 +147,12 @@ class Order():
         )
 
     def is_filled(self):
-        if self.status not in ['Rejected', 'PartiallyFilledCanceled', 'Filled', 'Cancelled', 'Triggered', 'Deactivated']:
+        if self.status not in ['Rejected', 'PartiallyFilledCanceled', 'Filled', 'Cancelled', 'Triggered', 'Deactivated', 'Failed']:
             self.update_info()
-            if self.status not in ['Rejected', 'PartiallyFilledCanceled', 'Filled', 'Cancelled', 'Triggered', 'Deactivated']:
-                return False
-        return True
-    
+        if self.status in ['Filled', 'PartiallyFilled', 'PartiallyFilledCanceled']:
+            return True
+        return False
+
     # id,bot_id,pair,direction,entry_order_id,exit_order_id,invested_amount,position_size,net_return,profit,entry_price,exit_price,entry_time,exit_time,status
 
 class Trade():
@@ -188,8 +189,9 @@ class Trade():
             self.entry_time = self.open_order.filled_time
             self.status = 'open'
             return True
-        else:
-            return False
+        elif self.open_order.status in ['Rejected', 'PartiallyFilledCanceled', 'Cancelled', 'Failed']:
+            self.status = 'open_failed'
+        return False
         
     def is_close(self):
         if self.close_order.is_filled():
@@ -199,8 +201,9 @@ class Trade():
             self.exit_time = self.close_order.filled_time
             self.status = 'close'
             return True
-        else:
-            return False
+        elif self.close_order.status in ['Rejected', 'PartiallyFilledCanceled', 'Cancelled', 'Failed']:
+            self.status = 'close_failed'
+        return False
 
     def __repr__(self):
         return f"Trade({self.id}, {getattr(self.open_order, 'symbol', None)}, {self.direction}, {self.status}, {getattr(self.open_order, 'price', None)}, {getattr(self.close_order, 'price', None)})"
@@ -494,6 +497,7 @@ class TradingBot():
                             trade.order_plan.status = 'Cancelled'
                         self.open_trades[symbol].append(trade)
                         self.process_trades['waiting'].remove(trade)
+                        self.open_trades[symbol].remove(trade)
 
         # Check opening trades (standard logic)
         for trade in self.process_trades['opening'][:]:
@@ -531,7 +535,24 @@ class TradingBot():
                 # Write the trade and open order to DB
                 self.write_order(trade.open_order)
                 self.write_trade(trade)  # new trade
+                # Announce the trade
+                # if self.notif_on:
+                #     trade_announce(trade, 'open-buy' if trade.open_order.side == 'buy' else 'open-sell')
+            elif trade.status == 'open_failed':
+                # If the trade failed to open, we need to return the funds to cash
+                token = trade.open_order.pair[-1]
+                estimated_amount = getattr(trade.open_order, 'estimated_amount', 0)
+                if token in self.fund:
+                    self.fund[token]['pending'] -= estimated_amount
+                    self.fund[token]['cash'] += estimated_amount # return to cash
                 
+                # Remove from processing queue
+                # trade.open_order = None # not needed anymore
+                self.process_trades['opening'].remove(trade)
+                # Announce the failure
+                # if self.notif_on:
+                #     trade_announce(trade, 'open-failed')
+
         # Check closing trades (standard logic)
         for trade in self.process_trades['closing'][:]:
             if trade.is_close():
@@ -558,6 +579,22 @@ class TradingBot():
                 # Write the trade and open order to DB
                 self.write_order(trade.close_order)
                 self.write_trade(trade)  # update trade
+                # Announce the trade
+                # if self.notif_on:
+                #     trade_announce(trade, 'close')
+            elif trade.status == 'close_failed':
+                # If the trade failed to close, we need to return the funds to cash
+                token = trade.close_order.pair[-1]
+                estimated_amount = getattr(trade.close_order, 'estimated_amount', 0)
+                if token in self.fund:
+                    self.fund[token]['pending'] -= estimated_amount
+                    self.fund[token]['invested'] += estimated_amount # return to invested
+                # Remove from processing queue
+                trade.close_order = None
+                self.process_trades['closing'].remove(trade)
+                # Announce the failure
+                # if self.notif_on:
+                #     trade_announce(trade, 'close-failed')
         
         return self.process_trades
 
@@ -646,6 +683,7 @@ class TradingBot():
         else:
             raise ValueError("Either trade or order_plan must be provided to close trades")
         
+        print("To_close: ", trades_to_close)
         # if no trades to close, return empty list
         if len(trades_to_close) == 0:
             return []
@@ -657,6 +695,9 @@ class TradingBot():
             token = trade.open_order.token_out if trade.open_order.side == 'buy' else trade.open_order.token_in
 
             close_op = None
+
+            print("open_order: ", trades_to_close[0].open_order.amount_out)
+
             # create a close order plan if not provided
             if order_plan is None:
                 o_side = trades_to_close[0].open_order.side
@@ -812,13 +853,14 @@ class TradingBot():
                 print(f"No data for symbol {symbol}: please check your strategy.get_data() implementation")
                 continue
             pair = [self.currency, t]
+            print(self.call_budget, self.fund)
             if self.call_budget < 1:
                 budget = self.fund[t]['cash'] * self.call_budget
             else:
                 budget = min(self.fund[t]['cash'], self.call_budget)
                 
             # run strategy to get order_queue
-            # order_plan = 
+            print(f"Running strategy for pair {pair} with budget {budget}")
             self.strategy.run(
                 pair,
                 df,

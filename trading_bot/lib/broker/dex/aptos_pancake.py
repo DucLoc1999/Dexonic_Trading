@@ -49,7 +49,6 @@ class PancakeBroker(BaseBroker):
         self.router_address = contract_info['router'][0]
 
     def get_decimal(self, symbol: str):
-        print(f"Getting decimal for {symbol}")
         decimal = json.loads(self.tokens[symbol][1])['data']['decimals']
         return int(decimal)
 
@@ -276,21 +275,28 @@ class PancakeBroker(BaseBroker):
     
     def update_order(self, order:Order, wait_update:bool=False):
         """Get order info by orderId"""
+        print(f"Updating order: {order.id}, tx: {order.tx}")
         receipt = run_async(self.get_receipt(order.tx, wait_update))
+        gas_used = events = None
+
         if receipt is None: 
-            print("receipt not ready")
+            print(f"receipt not ready {order.tx}")
             return None
+        elif getattr(receipt, "success", False) is False:
+            print(f"Transaction failed for tx: {order.tx}")
+            order.status = 'Failed'
+            return order
+        else:
+            gas_used = int(receipt.get('gas_used', 0))
+            gas_price = int(receipt.get('gas_unit_price', 0))
+            events = receipt.get('events', [])
+            if gas_used == 0 or len(events) == 0:
+                print(f"receipt events not ready {order.tx}")
+                return None
+
         try:
             amount_in = 0
             amount_out = 0
-
-            gas_used = int(receipt['gas_used'])
-            gas_price = int(receipt["gas_unit_price"])
-
-            # payload = receipt.get('payload', {}) # tx input
-            events = receipt.get('events', [])
-            events = [{'guid': {'creation_number': '5', 'account_address': '0xf9bf1298a04a1fe13ed75059e9e6950ec1ec2d6ed95f8a04a6e11af23c87381e'}, 'sequence_number': '0', 'type': '0x1::coin::WithdrawEvent', 'data': {'amount': '100000'}}, {'guid': {'creation_number': '2', 'account_address': '0xf9bf1298a04a1fe13ed75059e9e6950ec1ec2d6ed95f8a04a6e11af23c87381e'}, 'sequence_number': '1', 'type': '0x1::coin::DepositEvent', 'data': {'amount': '2276762'}}, {'guid': {'creation_number': '732', 'account_address': '0xc7efb4076dbe143cbcd98cfaaa929ecfc8f299203dfff63b95ccb6bfe19850fa'}, 'sequence_number': '1102347', 'type': '0xc7efb4076dbe143cbcd98cfaaa929ecfc8f299203dfff63b95ccb6bfe19850fa::swap::SwapEvent<0x1::aptos_coin::AptosCoin, 0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT>', 'data': {'amount_x_in': '0', 'amount_x_out': '2276762', 'amount_y_in': '100000', 'amount_y_out': '0', 'user': '0xf9bf1298a04a1fe13ed75059e9e6950ec1ec2d6ed95f8a04a6e11af23c87381e'}}, {'guid': {'creation_number': '0', 'account_address': '0x0'}, 'sequence_number': '0', 'type': '0x1::transaction_fee::FeeStatement', 'data': {'execution_gas_units': '7', 'io_gas_units': '10', 'storage_fee_octas': '0', 'storage_fee_refund_octas': '0', 'total_charge_gas_units': '16'}}]
-
             for e in events:
                 if "swap::SwapEvent" in e.get('type', ""):
                     amount_x_in = int(e['data']['amount_x_in'])
@@ -322,7 +328,8 @@ class PancakeBroker(BaseBroker):
             order.fee = fee
             return order
         except Exception as e:
-            print(f"receipt not ready for parse")
+            print(f"receipt not ready for parse: {e}")
+            print("receipt: ", receipt)
             return None
 
     def place_order(self, order_plan: OrderPlan, bot: TradingBot) -> Order:
@@ -351,24 +358,31 @@ class PancakeBroker(BaseBroker):
         """ 
         # todo:fee = amountin + chain fee
         # print("Placing order: ", order_plan)
-        amount = self.to_wei(order_plan.pair[-1], order_plan.qty)
         try:
             tx = None
             if order_plan.side == 'buy':
+                amount = self.to_wei(order_plan.pair[0], order_plan.qty)
                 path = order_plan.pair
-                tx = self.swap_exact_out(
+                # tx = self.swap_exact_out(
+                #     account=bot.account,
+                #     path=path,
+                #     amount_out=amount,
+                #     amount_in_max=None  # order_plan.estimated_amount
+                # )
+                tx = self.swap_exact_in(
                     account=bot.account,
                     path=path,
-                    amount_out=amount,
-                    amount_in_max=None  # order_plan.estimated_amount
+                    amount_in=amount,
+                    amount_out_min=0  # order_plan.estimated_amount
                 )
             elif order_plan.side == 'sell':
+                amount = self.to_wei(order_plan.pair[-1], order_plan.qty)
                 path = order_plan.pair[::-1]
                 tx = self.swap_exact_in(
                     account=bot.account,
                     path=path,
                     amount_in=amount,
-                    amount_out_min=None  # order_plan.estimated_amount
+                    amount_out_min=0  # order_plan.estimated_amount
                 )
 
             order = Order(
