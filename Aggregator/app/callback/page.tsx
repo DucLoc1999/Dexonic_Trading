@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { exchangeCodeForTokens, getGoogleUserInfo } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
-export default function CallbackPage() {
+function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">(
@@ -120,5 +120,29 @@ export default function CallbackPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center p-4">
+      <Card className="bg-black/50 backdrop-blur-md border border-yellow-500/20 max-w-md w-full">
+        <CardContent className="p-8 text-center">
+          <div className="mb-6">
+            <Loader2 className="w-12 h-12 animate-spin text-yellow-400 mx-auto" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-4">Loading...</h2>
+          <p className="text-gray-300">Initializing authentication...</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function CallbackPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <CallbackContent />
+    </Suspense>
   );
 }
