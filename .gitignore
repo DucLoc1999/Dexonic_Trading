@@ -1,9 +1,94 @@
-.venv
-trading_bot/trade_bot.db
-.env
-*.db
-__pycache__*
+# Python Virtual Environment
+.venv/
+venv/
+env/
 
-logs/*
-test*
+# Python Cache and Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+trading_bot/trade_bot.db
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Configuration and Secrets
+config/secrets.json
+config/private.json
+config/local.json
 *.yaml
+*.yml
+!docker-compose.yml
+!.github/workflows/*.yml
+
+# API Keys and Wallets
+**/private_keys/
+**/wallets/
+*.pem
+*.key
+secrets/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Testing
+test/
+test_*
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Distribution and Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Trading Bot Specific
+backups/
+trade_history/
+*.backup
+historical_data/
+market_data_cache/
