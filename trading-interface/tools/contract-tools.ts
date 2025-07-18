@@ -154,7 +154,7 @@ export const withdrawFromContractTool = tool({
       let amountIn: string;
       if (params.amount.toLowerCase() === 'max' || params.amount.toLowerCase() === 'all') {
         const contractBalance = await getContractBalance(session.address as Address, tokenAddress as Address);
-        if (!contractBalance || contractBalance.amount === 0n) {
+        if (!contractBalance || contractBalance.amount === BigInt(0)) {
           // Use 'S' for display when it's WETH
           const symbol = tokenAddress === wAddress ? 'S' : await getTokenSymbol(chainId, tokenAddress as Address);
           const content = `You don't have any ${symbol} in the contract to withdraw.`;
@@ -170,7 +170,7 @@ export const withdrawFromContractTool = tool({
         const contractBalance = await getContractBalance(session.address as Address, tokenAddress as Address);
         if (!contractBalance || contractBalance.amount < BigInt(amountIn)) {
           const symbol = tokenAddress === wAddress ? 'S' : await getTokenSymbol(chainId, tokenAddress as Address);
-          const content = `Insufficient balance. You have ${formatUnits(contractBalance?.amount || 0n, decimals)} ${symbol} in the contract.`;
+          const content = `Insufficient balance. You have ${formatUnits(contractBalance?.amount || BigInt(0), decimals)} ${symbol} in the contract.`;
           return { success: false, message: content };
         }
       }

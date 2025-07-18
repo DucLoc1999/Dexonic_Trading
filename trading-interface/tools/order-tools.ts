@@ -99,7 +99,7 @@ export const submitLimitOrderTool = tool({
             fromTokenAddress === wAddress ? 'S' : await getTokenSymbol(chainId, fromTokenAddress as Address);
           return {
             success: false,
-            content: `Insufficient balance. You have ${formatUnits(contractBalance?.amount || 0n, fromDecimals)} ${fromSymbol} in the contract. Please deposit more tokens first.`,
+            content: `Insufficient balance. You have ${formatUnits(contractBalance?.amount || BigInt(0), fromDecimals)} ${fromSymbol} in the contract. Please deposit more tokens first.`,
           };
         }
       } else {
@@ -122,7 +122,7 @@ export const submitLimitOrderTool = tool({
             fromTokenAddress === wAddress ? 'S' : await getTokenSymbol(chainId, fromTokenAddress as Address);
           return {
             success: false,
-            content: `Insufficient balance. You need ${formatUnits(BigInt(amountIn), fromDecimals)} ${fromSymbol} but you have ${formatUnits(contractBalance?.amount || 0n, fromDecimals)} in the contract. Please deposit more tokens first.`,
+            content: `Insufficient balance. You need ${formatUnits(BigInt(amountIn), fromDecimals)} ${fromSymbol} but you have ${formatUnits(contractBalance?.amount || BigInt(0), fromDecimals)} in the contract. Please deposit more tokens first.`,
           };
         }
       }
