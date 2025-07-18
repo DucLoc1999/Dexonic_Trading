@@ -1,0 +1,53 @@
+{
+  "name": "dexonic-nextjs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^1.3.23",
+    "@ai-sdk/react": "^1.2.12",
+    "@aptos-labs/ts-sdk": "^3.1.3",
+    "@aptos-labs/wallet-adapter-react": "^7.0.1",
+    "@phosphor-icons/react": "^2.1.10",
+    "@radix-ui/react-tooltip": "^1.2.7",
+    "@rainbow-me/rainbowkit": "^2.2.8",
+    "@supabase/supabase-js": "^2.52.0",
+    "ai": "^4.3.16",
+    "aptos": "^1.21.0",
+    "class-variance-authority": "^0.7.1",
+    "dotenv": "^17.2.0",
+    "highcharts": "^12.3.0",
+    "highcharts-react-official": "^3.2.2",
+    "jose": "^6.0.12",
+    "lucide-react": "^0.522.0",
+    "next": "15.3.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-lightweight-charts": "^0.1.0",
+    "react-markdown": "^10.1.0",
+    "react-responsive-container": "^0.0.0",
+    "react-textarea-autosize": "^8.5.9",
+    "recharts": "^3.0.2",
+    "remark-gfm": "^4.0.1",
+    "sonner": "^2.0.6",
+    "tailwind-merge": "^3.3.1",
+    "wagmi": "^2.15.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.5",
+    "postcss": "8.5.3",
+    "tailwindcss": "3.4.17",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.3"
+  }
+}
