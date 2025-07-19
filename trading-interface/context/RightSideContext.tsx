@@ -20,7 +20,7 @@ export const RightSideProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const [isSwapActive, setIsSwapActive] = useState(false);
+  const [isSwapActive, setIsSwapActive] = useState(true);
   return (
     <RightSideContext.Provider value={{ isSwapActive, setIsSwapActive }}>
       {children}

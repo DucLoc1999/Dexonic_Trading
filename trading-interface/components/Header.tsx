@@ -7,12 +7,16 @@ import { useCurrentToken } from "@/context/CurrentTokenContext";
 import { useTimeframe } from "@/context/TimeframeContext";
 import { coinsListAptos } from "@/data/tokens-list";
 import { WalletConnect } from "./WalletConnect";
+import Link from "next/link";
 
 const navLinks = [
   { label: "DASHBOARD", href: "#" },
-  { label: "AGGREGATOR", href: "#" },
-  { label: "ASSETS VAULT", href: "#" },
-  { label: "DOCUMENTS", href: "#" },
+  { label: "AGGREGATOR", href: "https://aggregator.dexonic.finance/swap" },
+  { label: "ASSETS VAULT", href: "https://discord.com/invite/Z39Te8FF8t" },
+  {
+    label: "DOCUMENTS",
+    href: "https://dexonic-1.gitbook.io/dexonic-docs/overview/why-dexonic",
+  },
 ];
 
 const Header = () => {
@@ -119,9 +123,11 @@ const Header = () => {
               onMouseLeave={() => setHoverTab(null)}
             >
               {navLinks.map((item, idx) => (
-                <a
+                <Link
                   key={item.label}
                   href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   ref={(el) => {
                     navRefs.current[idx] = el;
                   }}
@@ -137,7 +143,7 @@ const Header = () => {
                   tabIndex={idx}
                 >
                   {item.label}
-                </a>
+                </Link>
               ))}
               {/* Underline */}
               <div
