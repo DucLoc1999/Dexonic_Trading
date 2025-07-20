@@ -7,7 +7,10 @@ import {
   getPoolReserves, 
   getAmountOut, 
   getAmountIn,
-  swapWithPontem,
+  getAnimeSwapPoolReserves,
+  getAnimeSwapAmountOut,
+  getAnimeSwapAmountIn,
+  swapWithAnimeSwap,
   waitForTransaction
 } from "./sign-txn";
 
@@ -69,28 +72,19 @@ export function useWalletUtils() {
     try {
       const { fromToken, toToken, fromAmount, toAmount } = params;
       
-      // Get pool reserves
-      const reserves = await getPoolReserves(fromToken.address, toToken.address);
+      // Get AnimeSwap pool reserves
+      const reserves = await getAnimeSwapPoolReserves(fromToken.address, toToken.address);
       if (!reserves.length) {
-        throw new Error("No liquidity pool found for this token pair");
+        throw new Error("No AnimeSwap liquidity pool found for this token pair");
       }
 
-      // Find the best pool (highest liquidity)
-      let bestReserve = reserves[0];
-      let bestLiquidity = bestReserve.reserveIn + bestReserve.reserveOut;
-      
-      for (const reserve of reserves) {
-        const liquidity = reserve.reserveIn + reserve.reserveOut;
-        if (liquidity > bestLiquidity) {
-          bestReserve = reserve;
-          bestLiquidity = liquidity;
-        }
-      }
+      // AnimeSwap only has one pool per token pair, so we use the first (and only) reserve
+      const bestReserve = reserves[0];
 
       if (fromAmount && parseFloat(fromAmount) > 0) {
-        // Calculate amount out from amount in
+        // Calculate amount out from amount in using AnimeSwap formula
         const amountIn = BigInt(parseFloat(fromAmount) * Math.pow(10, fromToken.decimals));
-        const amountOut = getAmountOut(amountIn, bestReserve.reserveIn, bestReserve.reserveOut);
+        const amountOut = getAnimeSwapAmountOut(amountIn, bestReserve.reserveIn, bestReserve.reserveOut, bestReserve.fee);
         const amountOutDecimal = Number(amountOut) / Math.pow(10, toToken.decimals);
         
         return {
@@ -102,9 +96,9 @@ export function useWalletUtils() {
           poolFound: true
         };
       } else if (toAmount && parseFloat(toAmount) > 0) {
-        // Calculate amount in from amount out
+        // Calculate amount in from amount out using AnimeSwap formula
         const amountOut = BigInt(parseFloat(toAmount) * Math.pow(10, toToken.decimals));
-        const amountIn = getAmountIn(amountOut, bestReserve.reserveIn, bestReserve.reserveOut);
+        const amountIn = getAnimeSwapAmountIn(amountOut, bestReserve.reserveIn, bestReserve.reserveOut, bestReserve.fee);
         const amountInDecimal = Number(amountIn) / Math.pow(10, fromToken.decimals);
         
         return {
@@ -119,7 +113,7 @@ export function useWalletUtils() {
         throw new Error("Either fromAmount or toAmount must be provided");
       }
     } catch (error) {
-      console.error("Error getting swap quote:", error);
+      console.error("Error getting AnimeSwap quote:", error);
       throw error;
     }
   };
@@ -149,7 +143,7 @@ export function useWalletUtils() {
       // Convert amount to bigint
       const amountIn = BigInt(parseFloat(fromAmount) * Math.pow(10, fromToken.decimals));
 
-      console.log('swapWithPontem params:')
+      console.log('swapWithAnimeSwap params:')
       console.log({accountAddress: account.address.toString(),
       fromTokenAddress: fromToken.address,
       toTokenAddress: toToken.address,
@@ -158,7 +152,7 @@ export function useWalletUtils() {
       poolType: quote.reserves.type,
       isExactOutput: params.isExactOutput || false})
       
-      const swapData = await swapWithPontem(
+      const swapData = await swapWithAnimeSwap(
         account.address.toString(),
         fromToken.address,
         toToken.address,

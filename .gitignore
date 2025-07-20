@@ -41,6 +41,7 @@ secrets/
 logs/
 *.log
 *.log.*
+txnHistory.txt
 
 # Testing
 test/

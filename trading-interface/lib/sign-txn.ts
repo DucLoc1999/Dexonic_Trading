@@ -9,6 +9,7 @@ type Reserve = {
   reserveIn: bigint;
   reserveOut: bigint;
   type: string;
+  fee: number;
 }
 
 type SwapWithPontemOutput = {
@@ -170,10 +171,10 @@ export async function getPoolReserves(
       // Map reserves back to coinIn and coinOut correctly
       if (pool.coinX.type === coinIn && pool.coinY.type === coinOut) {
         // coinIn is coinX, coinOut is coinY
-        results.push({ reserveIn: reserveX, reserveOut: reserveY, type: pool.type });
+        results.push({ reserveIn: reserveX, reserveOut: reserveY, type: pool.type, fee: pool.fee });
       } else if (pool.coinX.type === coinOut && pool.coinY.type === coinIn) {
         // coinIn is coinY, coinOut is coinX
-        results.push({ reserveIn: reserveY, reserveOut: reserveX, type: pool.type });
+        results.push({ reserveIn: reserveY, reserveOut: reserveX, type: pool.type, fee: pool.fee });
       }
     }
     return results;
@@ -187,18 +188,158 @@ export async function getPoolReserves(
   throw new Error("No pool found for this token pair.");
 }
 
+// -- 4.1. Get AnimeSwap Pool Reserves --
+export async function getAnimeSwapPoolReserves(
+  coinIn: string,
+  coinOut: string
+): Promise<Reserve[]> {
+  try {
+    const client = getClient();
+    const moduleAddress = "0x16fe2df00ea7dde4a63409201f7f4e536bde7bb7335526a35d05111e68aa322c";
+    
+    // Try both directions: X->Y and Y->X
+    const [coinX, coinY] = [coinIn, coinOut].sort();
+    
+    console.log('Attempting to get AnimeSwap pool reserves for:', { coinX, coinY });
+    
+    // The pools are stored at the resource account address, not the module address
+    const resourceAccountAddress = "0x796900ebe1a1a54ff9e932f19c548f5c1af5c6e7d34965857ac2f7b1d1ab2cbf";
+    
+    try {
+      console.log(`Reading from resource account address: ${resourceAccountAddress}`);
+      
+      // Check if pool exists in X->Y direction
+      const resourceTypeXY = `${moduleAddress}::AnimeSwapPoolV1::LiquidityPool<${coinX},${coinY}>`;
+      const resourceTypeYX = `${moduleAddress}::AnimeSwapPoolV1::LiquidityPool<${coinY},${coinX}>`;
+      
+      let poolResource;
+      let isXYDirection = true;
+      
+      try {
+        console.log('Trying to read pool resource:', resourceTypeXY);
+        poolResource = await client.getAccountResource(resourceAccountAddress, resourceTypeXY);
+        console.log('Found pool in X->Y direction');
+      } catch (error) {
+        console.log('X->Y direction failed, trying Y->X:', error);
+        try {
+          console.log('Trying to read pool resource:', resourceTypeYX);
+          poolResource = await client.getAccountResource(resourceAccountAddress, resourceTypeYX);
+          isXYDirection = false;
+          console.log('Found pool in Y->X direction');
+        } catch (error2) {
+          console.log('Both directions failed');
+          throw new Error("No AnimeSwap pool found for this token pair.");
+        }
+      }
+      
+      if (!poolResource || !poolResource.data) {
+        throw new Error("Invalid pool resource data.");
+      }
+      
+      console.log('Pool resource data:', poolResource.data);
+      
+      const data = poolResource.data as any;
+      const reserveX = BigInt(data.coin_x_reserve?.value || data.coin_x_reserve || 0);
+      const reserveY = BigInt(data.coin_y_reserve?.value || data.coin_y_reserve || 0);
+      
+      console.log('Raw reserves from resource:', { 
+        reserveX: reserveX.toString(), 
+        reserveY: reserveY.toString(),
+        isXYDirection 
+      });
+      
+      // Map reserves based on direction and input/output tokens
+      let reserveIn: bigint;
+      let reserveOut: bigint;
+      let poolType: string;
+      
+      if (isXYDirection) {
+        if (coinIn === coinX) {
+          // coinIn is coinX, coinOut is coinY
+          reserveIn = reserveX;
+          reserveOut = reserveY;
+          poolType = resourceTypeXY;
+        } else {
+          // coinIn is coinY, coinOut is coinX
+          reserveIn = reserveY;
+          reserveOut = reserveX;
+          poolType = resourceTypeYX;
+        }
+      } else {
+        if (coinIn === coinY) {
+          // coinIn is coinY, coinOut is coinX
+          reserveIn = reserveY;
+          reserveOut = reserveX;
+          poolType = resourceTypeYX;
+        } else {
+          // coinIn is coinX, coinOut is coinY
+          reserveIn = reserveX;
+          reserveOut = reserveY;
+          poolType = resourceTypeXY;
+        }
+      }
+      
+      // Default fee for AnimeSwap is 30 basis points (0.3%)
+      const fee = 30;
+      
+      console.log('Final mapped reserves:', { 
+        reserveIn: reserveIn.toString(), 
+        reserveOut: reserveOut.toString(), 
+        poolType, 
+        fee 
+      });
+      
+      return [{
+        reserveIn,
+        reserveOut,
+        type: poolType,
+        fee
+      }];
+      
+    } catch (error) {
+      console.log(`Failed to read from resource account:`, error);
+      throw error;
+    }
+    
+    throw new Error("No AnimeSwap pool found for this token pair after trying all methods.");
+    
+  } catch (error) {
+    console.error("Error getting AnimeSwap pool reserves:", error);
+    throw new Error("No AnimeSwap pool found for this token pair.");
+  }
+}
+
 // -- 5. Get Amount Out --
-export function getAmountOut(amountIn: bigint, reserveIn: bigint, reserveOut: bigint): bigint {
-  const amountInWithFee = amountIn * BigInt(997);
+export function getAmountOut(amountIn: bigint, reserveIn: bigint, reserveOut: bigint, fee: number): bigint {
+  const amountInWithFee = amountIn * BigInt(1000 - fee);
   const numerator = amountInWithFee * reserveOut;
   const denominator = reserveIn * BigInt(1000) + amountInWithFee;
   return numerator / denominator;
 }
 
+// -- 5.1. Get AnimeSwap Amount Out --
+export function getAnimeSwapAmountOut(amountIn: bigint, reserveIn: bigint, reserveOut: bigint, fee: number): bigint {
+  // AnimeSwap uses the same AMM formula as Liquidswap
+  // But we can also call the smart contract function directly for more accuracy
+  const amountInWithFee = amountIn * BigInt(10000 - fee); // fee is in basis points (30 = 0.3%)
+  const numerator = amountInWithFee * reserveOut;
+  const denominator = reserveIn * BigInt(10000) + amountInWithFee;
+  return numerator / denominator;
+}
+
 // -- 6. Get Amount In --
-export function getAmountIn(amountOut: bigint, reserveIn: bigint, reserveOut: bigint): bigint {
+export function getAmountIn(amountOut: bigint, reserveIn: bigint, reserveOut: bigint, fee: number): bigint {
   const numerator = reserveIn * amountOut * BigInt(1000);
-  const denominator = (reserveOut - amountOut) * BigInt(997);
+  const denominator = (reserveOut - amountOut) * BigInt(1000 - fee);
+  return numerator / denominator + BigInt(1);
+}
+
+// -- 6.1. Get AnimeSwap Amount In --
+export function getAnimeSwapAmountIn(amountOut: bigint, reserveIn: bigint, reserveOut: bigint, fee: number): bigint {
+  // AnimeSwap uses the same AMM formula as Liquidswap
+  // But with fee in basis points (30 = 0.3%)
+  const numerator = reserveIn * amountOut * BigInt(10000);
+  const denominator = (reserveOut - amountOut) * BigInt(10000 - fee);
   return numerator / denominator + BigInt(1);
 }
 
@@ -316,6 +457,90 @@ export async function swapWithPontem(
         minAmountOut.toString(),  // coins_out_min_val: minimum out
       ];
     }
+  }
+
+  const payload: InputGenerateTransactionPayloadData = {
+    function: `${moduleAddress}::${moduleName}::${functionName}`,
+    typeArguments: typeArguments,
+    functionArguments: functionArguments,
+  };
+
+  // Ensure type_arguments is properly set
+  if (!payload.typeArguments || payload.typeArguments.length === 0) {
+    throw new Error("Type arguments are empty");
+  }
+
+  return {
+    payload,
+    typeArguments,
+    functionName,
+    moduleAddress
+  };
+}
+
+// -- 7.1. Swap with AnimeSwap --
+export async function swapWithAnimeSwap(
+  accountAddress: string,
+  coinIn: string,
+  coinOut: string,
+  amountIn: bigint,
+  minAmountOut: bigint,
+  poolType: string,
+  isExactOutput: boolean = false
+): Promise<SwapWithPontemOutput> {
+  if (!accountAddress) {
+    throw new Error("Account address is undefined");
+  }
+  const [coinX, ] = [coinIn, coinOut].sort();
+
+  // Extract type arguments from pool type
+  const extractTypeArguments = (poolType: string): string[] => {
+    // Match the pattern: anything<coinX, coinY, curveType> - just extract what's in the brackets
+    const match = poolType.match(/<([^>]+)>/);
+    if (!match) {
+      throw new Error(`Could not parse pool type: ${poolType}`);
+    }
+    
+    // Split by comma, but be careful with nested generics
+    const typeArgs = match[1].split(',').map(arg => arg.trim());
+    return typeArgs;
+  };
+
+  // Determine if coinIn-coinOut matches coinX-coinY or coinY-coinX
+  const isCoinInCoinX = coinIn === coinX;
+
+  // TODO: Fill in the actual AnimeSwap module address
+  const moduleAddress = "0x16fe2df00ea7dde4a63409201f7f4e536bde7bb7335526a35d05111e68aa322c";
+  const moduleName = "AnimeSwapPoolV1"; // From the contract: module SwapDeployer::AnimeSwapPoolV1
+  
+  // Function names based on the contract entry functions
+  let functionName: string;
+  if (isExactOutput) {
+    // Exact output swap - use swap_coins_for_exact_coins_entry
+    functionName = "swap_coins_for_exact_coins_entry";
+  } else {
+    // Exact input swap - use swap_exact_coins_for_coins_entry
+    functionName = "swap_exact_coins_for_coins_entry";
+  }
+
+  let typeArguments = extractTypeArguments(poolType);
+  typeArguments = typeArguments.map(arg => String(arg));
+
+  // Construct function arguments based on the contract entry functions
+  let functionArguments: string[];
+
+  if (isExactOutput) {
+    // swap_coins_for_exact_coins_entry<X, Y>(account, amount_out, amount_in_max)
+    functionArguments = [
+      minAmountOut.toString(),  // amount_out: exact output amount
+      amountIn.toString(),      // amount_in_max: maximum input amount
+    ];
+  } else {
+    // swap_exact_coins_for_coins_entry<X, Y>(account, amount_in, amount_out_min)
+    functionArguments = [
+      amountIn.toString(),      // amount_in: input amount
+      minAmountOut.toString(),  // amount_out_min: minimum out
+    ];
   }
 
   const payload: InputGenerateTransactionPayloadData = {

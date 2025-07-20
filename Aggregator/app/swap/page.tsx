@@ -1993,7 +1993,9 @@ export default function SwapPage() {
             {/* Desktop Menu */}
             <div className="hidden md:flex items-center space-x-8">
               <Link
-                href="/"
+                href="https://dexonic.finance"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-gray-300 hover:text-yellow-400 transition-colors"
               >
                 Home
