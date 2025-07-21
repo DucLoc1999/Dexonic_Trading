@@ -3,6 +3,7 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from "recharts";
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useCurrentToken } from "@/context/CurrentTokenContext";
 import { coinsListAptos } from "@/data/tokens-list";
 
@@ -608,7 +609,13 @@ const MainComponentLeft: React.FC<MainComponentLeftProps> = () => {
         {/* Social Links */}
         <div className="grid grid-cols-6 min-w-[180px] min-h-[30px] overflow-auto gap-0">
           <div className="border border-[#3A3A3A] min-w-[30px] min-h-[30px] p-[5px] flex items-center justify-center hover:border-[#6EFFF8] transition-colors duration-300 cursor-pointer">
-            <Image src="/img/imgX.svg" alt="X" width={24} height={24} />
+            <Link
+              href="https://x.com/dexonic_finance"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Image src="/img/imgX.svg" alt="X" width={24} height={24} />
+            </Link>
           </div>
           <div className="border border-[#3A3A3A] min-w-[30px] min-h-[30px] p-[5px] flex items-center justify-center hover:border-[#6EFFF8] transition-colors duration-300 cursor-pointer">
             <Image
